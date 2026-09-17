@@ -1122,6 +1122,9 @@ void reopen_dumpers(struct r_cfg *cfg)
 
             // Reopen the file
             print_logf(LOG_INFO, "Dumper", "Reopening \"%s\"", dumper->path);
+            if (dumper->container == FILEFMT_SIGMF) {
+                // TODO: close and open sigmf?
+            }
             fclose(dumper->file);
             dumper->file = fopen(dumper->path, "wb");
             if (!dumper->file) {
@@ -1182,11 +1185,30 @@ void add_dumper(r_cfg_t *cfg, char const *spec, int overwrite)
     }
 
     file_info_t *dumper = calloc(1, sizeof(*dumper));
-    if (!dumper)
+    if (!dumper) {
         FATAL_CALLOC("add_dumper()");
+    }
     list_push(&cfg->demod->dumper, dumper);
 
     file_info_parse_filename(dumper, spec);
+
+    // Construct a file name if no base filename given
+    char path_tmp[64]  = {0};
+    if (!dumper->path || !*dumper->path) {
+        char const *datatype   = file_info_to_ext(dumper);
+        uint32_t freq_hz = (cfg->frequencies == 0) ? DEFAULT_FREQUENCY : cfg->frequency[0];
+        double freq_mhz  = freq_hz / 1000000.0;
+        double rate_khz  = cfg->samp_rate / 1000.0;
+        for (unsigned cnt = 1;; ++cnt) {
+            // TODO: maybe format_time_str(...);
+            snprintf(path_tmp, sizeof(path_tmp), "rec%03u_%gM_%gk.%s", cnt, freq_mhz, rate_khz, datatype);
+            if (access(path_tmp, F_OK) == -1) {
+                file_info_parse_filename(dumper, path_tmp);
+                break;
+            }
+        }
+    }
+
     // Open the output
     if (dumper->container == FILEFMT_SIGMF) {
         sigmf_t *sigmf = calloc(1, sizeof(*sigmf));
@@ -1239,6 +1261,10 @@ void add_dumper(r_cfg_t *cfg, char const *spec, int overwrite)
             fprintf(stderr, "Failed to open %s\n", spec);
             exit(1);
         }
+    }
+    if (dumper->path == path_tmp) {
+        fprintf(stderr, "Freeing %s\n", dumper->path);
+        dumper->path = NULL; // don't leak the local string
     }
     if (dumper->format == VCD_LOGIC) {
         pulse_data_print_vcd_header(dumper->file, cfg->samp_rate);
