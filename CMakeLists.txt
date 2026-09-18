@@ -130,6 +130,21 @@ if(ENABLE_COVERAGE)
     endif()
 endif()
 
+# Optional libFuzzer harnesses (Clang only), see tests/fuzz-decoder.c.
+# Configure with -DENABLE_FUZZING=ON -DCMAKE_C_COMPILER=clang, then run e.g.
+# ./build/tests/fuzz-decoder -max_len=600 corpus/
+# Builds everything with ASan/UBSan, so the resulting rtl_433 is for testing only.
+option(ENABLE_FUZZING "Build libFuzzer harnesses (Clang only)" OFF)
+if(ENABLE_FUZZING)
+    if("${CMAKE_C_COMPILER_ID}" MATCHES "Clang")
+        message(STATUS "Fuzzing harnesses enabled")
+        add_compile_options(-g -O1 -fsanitize=fuzzer-no-link,address,undefined -fno-sanitize-recover=undefined)
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address,undefined")
+    else()
+        message(WARNING "ENABLE_FUZZING is only supported on Clang, ignoring")
+    endif()
+endif()
+
 # Shut MSVC up about strdup and strtok
 if(MSVC)
     ADD_DEFINITIONS(-D_CRT_NONSTDC_NO_DEPRECATE)

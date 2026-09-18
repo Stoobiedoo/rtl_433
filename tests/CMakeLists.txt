@@ -90,6 +90,16 @@ if(UNIX)
 endif()
 
 ########################################################################
+# Define fuzzing harnesses
+########################################################################
+# Not registered as a ctest test: a fuzzer runs until stopped. Build with
+# -DENABLE_FUZZING=ON and drive it manually or from a fuzzing service.
+if(ENABLE_FUZZING AND "${CMAKE_C_COMPILER_ID}" MATCHES "Clang")
+    add_executable(fuzz-decoder fuzz-decoder.c)
+    target_link_libraries(fuzz-decoder r_433 -fsanitize=fuzzer)
+endif()
+
+########################################################################
 # Define style checks
 ########################################################################
 add_executable(style-check style-check.c)
