@@ -49,6 +49,9 @@ Decoder written by Dmitriy Kozyrev, 2020
 
 #include "decoder.h"
 
+// The external probe reports this raw value when nothing is plugged in.
+#define INKBIRD_ITH20R_NOT_CONNECTED 1300 // 0x1405 little-endian
+
 #define INKBIRD_ITH20R_CRC_POLY 0xA001  // reflected 0x8005
 #define INKBIRD_ITH20R_CRC_INIT 0x86F4  // reflected 0x2f61
 
@@ -104,9 +107,20 @@ static int inkbird_ith20r_callback(r_device *decoder, bitbuffer_t *bitbuffer)
     uint16_t word56 = (msg[6] << 8 | msg[5]);
     float battery_ok = msg[7] * 0.01f;
     uint16_t sensor_id = (msg[9] << 8 | msg[8]);
-    float temperature = ((int16_t)(msg[11] << 8 | msg[10])) * 0.1f;
-    float temperature_ext = ((int16_t)(msg[13] << 8 | msg[12])) * 0.1f;
-    float humidity = (msg[15] << 8 | msg[14]) * 0.1f;
+    int temperature_raw     = (int16_t)(msg[11] << 8 | msg[10]);
+    int temperature_ext_raw = (int16_t)(msg[13] << 8 | msg[12]);
+    int humidity_raw        = (msg[15] << 8 | msg[14]);
+
+    float temperature     = temperature_raw * 0.1f;
+    float temperature_ext = temperature_ext_raw * 0.1f;
+    float humidity        = humidity_raw * 0.1f;
+
+    // Report the external probe only when one is attached. Devices with no
+    // humidity sensor (e.g. the IBS-P01R) send the same not-connected value
+    // in the humidity field, and a humidity over 100 % is impossible anyway,
+    // so bound that rather than emit 130.0 % as if it were a reading.
+    int temperature_ext_ok = temperature_ext_raw != INKBIRD_ITH20R_NOT_CONNECTED;
+    int humidity_ok        = humidity_raw <= 1000;
     uint8_t word18 = msg[18];
 
     decoder_logf(decoder, 1, __func__, "dword0-3= 0x%08X word5-6= 0x%04X byte18= 0x%02X", subtype, word56, word18);
@@ -118,8 +132,8 @@ static int inkbird_ith20r_callback(r_device *decoder, bitbuffer_t *bitbuffer)
             "battery_ok",       "Battery level",    DATA_DOUBLE, battery_ok,
             "sensor_num",       "",             DATA_INT,    sensor_num,
             "temperature_C",    "Temperature",  DATA_FORMAT, "%.1f C", DATA_DOUBLE, temperature,
-            "temperature_2_C",  "Temperature2", DATA_FORMAT, "%.1f C", DATA_DOUBLE, temperature_ext,
-            "humidity",         "Humidity",     DATA_FORMAT, "%.1f %%", DATA_DOUBLE, humidity,
+            "temperature_2_C",  "Temperature2", DATA_COND,   temperature_ext_ok, DATA_FORMAT, "%.1f C", DATA_DOUBLE, temperature_ext,
+            "humidity",         "Humidity",     DATA_COND,   humidity_ok,        DATA_FORMAT, "%.1f %%", DATA_DOUBLE, humidity,
             "mic",              "Integrity",    DATA_STRING, "CRC",
             NULL);
     /* clang-format on */
