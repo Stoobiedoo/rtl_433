@@ -815,6 +815,7 @@ static int acurite_atlas_decode(r_device *decoder, bitbuffer_t *bitbuffer, unsig
         if (tempf < -40.0 || tempf > 158.0) {
             decoder_logf(decoder, 1, __func__, "Atlas 0x%04X Ch %s, invalid temperature: %0.1f F",
                          sensor_id, channel_str, tempf);
+            data_free(data);
             return DECODE_FAIL_SANITY;
         }
 
@@ -826,6 +827,7 @@ static int acurite_atlas_decode(r_device *decoder, bitbuffer_t *bitbuffer, unsig
         if (humidity > 100) {
             decoder_logf(decoder, 1, __func__, "0x%04X Ch %s : Impossible humidity: %d %%rH",
                          sensor_id, channel_str, humidity);
+            data_free(data);
             return DECODE_FAIL_SANITY;
         }
 
@@ -856,6 +858,7 @@ static int acurite_atlas_decode(r_device *decoder, bitbuffer_t *bitbuffer, unsig
         if (wind_dir > 360) {
             decoder_logf(decoder, 1, __func__, "Atlas 0x%04X Ch %s, invalid wind direction: %0.1fF",
                          sensor_id, channel_str, wind_dir);
+            data_free(data);
             return DECODE_FAIL_SANITY;
         }
 
@@ -882,6 +885,7 @@ static int acurite_atlas_decode(r_device *decoder, bitbuffer_t *bitbuffer, unsig
         if (lux > 12000) {
             decoder_logf(decoder, 1, __func__, "Atlas 0x%04X Ch %s, invalid lux %d",
                          sensor_id, channel_str, lux);
+            data_free(data);
             return DECODE_FAIL_SANITY;
         }
 
@@ -1226,6 +1230,7 @@ static int acurite_optimus_decode(r_device *decoder, bitbuffer_t *bitbuffer, uin
         if (tempf < -40.0f || tempf > 158.0f) {
             decoder_logf(decoder, 1, __func__, "Optimus 0x%04X Ch %s, invalid temperature: %0.1f F",
                          sensor_id, channel_str, tempf);
+            data_free(data);
             return DECODE_FAIL_SANITY;
         }
 
@@ -1233,6 +1238,7 @@ static int acurite_optimus_decode(r_device *decoder, bitbuffer_t *bitbuffer, uin
         if (humidity > 100) {
             decoder_logf(decoder, 1, __func__, "Optimus 0x%04X Ch %s, invalid humidity: %d %%rH",
                          sensor_id, channel_str, humidity);
+            data_free(data);
             return DECODE_FAIL_SANITY;
         }
 
