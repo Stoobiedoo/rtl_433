@@ -17,8 +17,9 @@
 #define DATA_START_POS 9
 
 #define HEADER_LENGTH  6
-#define MAX_LENGTH     65
-#define BUF_LENGTH     72
+#define MAX_LENGTH     65 // max payload length, as given by the length byte
+#define CRC_LENGTH     2
+#define BUF_LENGTH     (HEADER_LENGTH + MAX_LENGTH + CRC_LENGTH)
 
 /**
 Generic decoder for RFM69 radio modules as used on LowPowerLab.com Moteino boards.
@@ -47,8 +48,8 @@ static int rfm69_fsk_decode(r_device *decoder, bitbuffer_t *bitbuffer)
 {
     uint8_t const preamble_pattern[1] = {0x2d}; // 8 bits
 
-    uint8_t message[BUF_LENGTH]; // max size of header + payload + terminator
-    uint8_t payload[MAX_LENGTH]; // max size of payload + terminator
+    uint8_t message[BUF_LENGTH]     = {0}; // max size of header + payload + CRC
+    uint8_t payload[MAX_LENGTH + 1] = {0}; // max size of length byte + payload
 
     unsigned posn = bitbuffer_search(bitbuffer, 0, 0, preamble_pattern, 8);
 
@@ -56,7 +57,10 @@ static int rfm69_fsk_decode(r_device *decoder, bitbuffer_t *bitbuffer)
         return DECODE_ABORT_EARLY; // Can't find bit position of sync word
     }
 
-    bitbuffer_extract_bytes(bitbuffer, 0, posn - 24, (uint8_t *)&message, (MAX_LENGTH) * 8); // Extract out full into our aligned buffer. Include 3x8 bits of sync word before the preamble
+    unsigned avail = bitbuffer->bits_per_row[0] - (posn - 24);
+    unsigned bits  = avail < BUF_LENGTH * 8 ? avail : BUF_LENGTH * 8;
+
+    bitbuffer_extract_bytes(bitbuffer, 0, posn - 24, message, bits); // Extract out full into our aligned buffer. Include 3x8 bits of sync word before the preamble
 
     uint8_t payload_len = message[LENGTH_POS];
 
@@ -64,7 +68,12 @@ static int rfm69_fsk_decode(r_device *decoder, bitbuffer_t *bitbuffer)
         return DECODE_ABORT_LENGTH; // message junk
     }
 
-    bitbuffer_extract_bytes(bitbuffer, 0, posn + 16, (uint8_t *)&payload, (payload_len + 1) * 8); // we need to include length byte in CRC calc
+    // the length byte, the payload and the CRC must all be present
+    if (avail < (LENGTH_POS + payload_len + 1 + CRC_LENGTH) * 8u) {
+        return DECODE_ABORT_LENGTH; // truncated frame
+    }
+
+    bitbuffer_extract_bytes(bitbuffer, 0, posn + 16, payload, (payload_len + 1) * 8); // we need to include length byte in CRC calc
 
     // found the polynomial values in an old Semtech application note.
     uint16_t crc = ~crc16(payload, (payload_len + 1), 0x1021, 0x1d0f) & 0xffff;
@@ -82,13 +91,13 @@ static int rfm69_fsk_decode(r_device *decoder, bitbuffer_t *bitbuffer)
         int gateway_id = message[SRC_ID_POS];
 
         char message_str[32];
-        sprintf(message_str, "%.30s", &message[DATA_START_POS]);
+        snprintf(message_str, sizeof(message_str), "%.30s", (char const *)&message[DATA_START_POS]);
 
         /* clang-format off */
         data_t *data = data_make(
             "model",        "Model",           DATA_STRING, "Moteino-RFM69",
-            "id",           "Node Id ",        DATA_STRING, node_id,
-            "gateway_id",   "Gateway Id",      DATA_STRING, gateway_id,
+            "id",           "Node Id ",        DATA_INT,    node_id,
+            "gateway_id",   "Gateway Id",      DATA_INT,    gateway_id,
             "msg",          "Message",         DATA_STRING, message_str,
             "mic",          "Integrity",       DATA_STRING, "CRC",
             NULL);
