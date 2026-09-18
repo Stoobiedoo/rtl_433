@@ -99,7 +99,7 @@ static int inkbird_ith20r_callback(r_device *decoder, bitbuffer_t *bitbuffer)
         return DECODE_FAIL_MIC;
     }
 
-    uint32_t subtype = (msg[3] << 24 | msg[2] << 16 | msg[1] << 8 | msg[0]);
+    uint32_t subtype = ((uint32_t)msg[3] << 24 | (uint32_t)msg[2] << 16 | (uint32_t)msg[1] << 8 | msg[0]);
     int sensor_num = msg[4];
     uint16_t word56 = (msg[6] << 8 | msg[5]);
     float battery_ok = msg[7] * 0.01f;

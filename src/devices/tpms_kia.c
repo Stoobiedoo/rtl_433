@@ -65,7 +65,7 @@ static int tpms_kia_decode(r_device *decoder, bitbuffer_t *bitbuffer, unsigned r
     unknown1    = b[0] >> 4;
     pressure    = b[0] << 4 | b[1] >> 4;
     temperature = b[1] << 4 | b[2] >> 4;
-    id          = b[2] << 28 | b[3] << 20 | b[4] << 12 | b[5] << 4 | b[6] >> 4;
+    id          = (unsigned)b[2] << 28 | (unsigned)b[3] << 20 | (unsigned)b[4] << 12 | (unsigned)b[5] << 4 | b[6] >> 4;
     unknown2    = b[6] << 8 | b[7];
 
     // The last 3 bits in b[8] are beyond the packet length of 154 bits. Make them 000.
